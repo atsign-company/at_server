@@ -1,20 +1,21 @@
 import 'dart:convert';
 import 'package:at_commons/at_commons.dart';
 import 'package:at_persistence_secondary_server/at_persistence_secondary_server.dart';
+import 'package:at_persistence_secondary_server/src/keystore/elasticsearch/elastic_manager.dart';
 import 'package:at_persistence_secondary_server/src/keystore/hive/hive_keystore_helper.dart';
-import 'package:at_utils/at_logger.dart';
 import 'package:at_persistence_secondary_server/src/utils/object_util.dart';
-import 'package:dartis/dartis.dart';
+import 'package:at_utils/at_logger.dart';
+import 'package:elastic_client/elastic_client.dart';
 import 'package:utf7/utf7.dart';
 
-class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
-  final logger = AtSignLogger('RedisKeyStore');
+class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
+  final logger = AtSignLogger('ElasticKeyStore');
   var _atSign;
+  ElasticPersistenceManager persistenceManager;
   var keyStoreHelper = HiveKeyStoreHelper.getInstance();
-  var persistenceManager;
   var _commitLog;
 
-  RedisKeyStore(this._atSign);
+  ElasticKeyStore(this._atSign);
 
   set commitLog(value) {
     _commitLog = value;
@@ -31,8 +32,8 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
       String dataSignature}) async {
     var result;
     var commitOp;
-    var redis_key = keyStoreHelper.prepareKey(key);
-    var redis_data = keyStoreHelper.prepareDataForCreate(value,
+    var elastic_key = keyStoreHelper.prepareKey(key);
+    var elastic_data = keyStoreHelper.prepareDataForCreate(value,
         ttl: time_to_live,
         ttb: time_to_born,
         ttr: time_to_refresh,
@@ -67,18 +68,24 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
 
     try {
       var value =
-          (redis_data != null) ? json.encode(redis_data.toJson()) : null;
-      await persistenceManager.redis_commands.set(redis_key, value);
-      result = await _commitLog.commit(redis_key, commitOp);
+          (elastic_data != null) ? json.encode(elastic_data.toJson()) : null;
+      await persistenceManager.client.updateDoc(
+        index: 'my_index',
+        type: 'my_type',
+        id: elastic_key,
+        doc: value,
+      );
+      await persistenceManager.client.flushIndex(index: 'my_index');
+      result = await _commitLog.commit(elastic_key, commitOp);
       return result;
     } on Exception catch (exception) {
-      logger.severe('RedisKeystore create exception: $exception');
+      logger.severe('ElasticKeystore create exception: $exception');
       throw DataStoreException('exception in create: ${exception.toString()}');
     }
   }
 
   @override
-  Future<bool> deleteExpiredKeys() async {
+  bool deleteExpiredKeys() {
     var result = true;
     try {
       var expiredKeys = <String>[];
@@ -102,55 +109,48 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
   Future<AtData> get(String key) async {
     var value = AtData();
     try {
-      var redis_key = keyStoreHelper.prepareKey(key);
-      var result = await persistenceManager.redis_commands.get(redis_key);
+      var elastic_key = keyStoreHelper.prepareKey(key);
+      var result = await persistenceManager.client
+          .get(index: 'my_index', type: 'my_type', id: elastic_key);
       if (result != null) {
         value = value.fromJson(json.decode(result));
       }
     } on Exception catch (exception) {
-      logger.severe('RedisKeystore get exception: $exception');
+      logger.severe('ElasticKeystore get exception: $exception');
       throw DataStoreException('exception in get: ${exception.toString()}');
     }
     return value;
   }
 
   @override
-  Future<List<String>> getExpiredKeys() async {
+  List<String> getExpiredKeys() {
     var keys = <String>[];
-    try {
-      var expiredKeys = <String>[];
-      var now = DateTime.now().toUtc();
-      if (persistenceManager.redis_commands != null) {
-        var keys = await persistenceManager.redis_commands.keys('*');
-        logger.info('type : ${keys.runtimeType}');
-        for (var key in keys) {
-          var data = await get(key);
-          if (data.metaData?.expiresAt != null &&
-              data.metaData.expiresAt.isBefore(now)) {
-            expiredKeys.add(key);
-          }
-        }
-      }
-    } on Exception catch (e) {
-      logger.severe('exception in hive get expired keys:${e.toString()}');
-      throw DataStoreException('exception in getExpiredKeys: ${e.toString()}');
-    }
     return keys;
   }
 
   @override
-  Future<List<String>> getKeys({String regex}) async {
+  List<String> getKeys({String regex}) {
     var keys = <String>[];
     var encodedKeys;
 
     try {
-      if (persistenceManager.redis_commands != null) {
+      if (persistenceManager.client != null) {
+        keys = keys = persistenceManager.client.search(
+            index: 'my_index',
+            type: 'my_type',
+            query: {
+              "query": {"match_all": {}},
+              "size": 30000,
+              "fields": ['id']
+            },
+            source: true);
+        ;
         // If regular expression is not null or not empty, filter keys on regular expression.
         if (regex != null && regex.isNotEmpty) {
-          encodedKeys = keys = persistenceManager.redis_commands.keys
+          encodedKeys = keys
               .where((element) => Utf7.decode(element).contains(RegExp(regex)));
         } else {
-          encodedKeys = await persistenceManager.redis_commands.keys('*');
+          encodedKeys = keys;
         }
         //encodedKeys?.forEach((key) => keys.add(Utf7.decode(key)));
       }
@@ -158,14 +158,20 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
       logger.severe('Invalid regular expression : ${regex}');
       throw InvalidSyntaxException('Invalid syntax ${exception.toString()}');
     } on Exception catch (exception) {
-      logger.severe('RedisKeystore getKeys exception: ${exception.toString()}');
+      logger.severe('ElasticKeystore getKeys exception: ${exception.toString()}');
       throw DataStoreException('exception in getKeys: ${exception.toString()}');
     }
     return encodedKeys;
   }
 
   @override
-  Future<int> put(String key, AtData value,
+  Future<AtMetaData> getMeta(String key) {
+    // TODO: implement getMeta
+    throw UnimplementedError();
+  }
+
+  @override
+  Future put(String key, AtData value,
       {int time_to_live,
       int time_to_born,
       int time_to_refresh,
@@ -204,8 +210,8 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
             isEncrypted: isEncrypted,
             dataSignature: dataSignature);
       } else {
-        var redis_key = keyStoreHelper.prepareKey(key);
-        var redis_value = keyStoreHelper.prepareDataForUpdate(
+        var elastic_key = keyStoreHelper.prepareKey(key);
+        var elastic_value = keyStoreHelper.prepareDataForUpdate(
             existingData, value,
             ttl: time_to_live,
             ttb: time_to_born,
@@ -214,54 +220,50 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
             isBinary: isBinary,
             isEncrypted: isEncrypted,
             dataSignature: dataSignature);
-        logger.finest('redis key:${redis_key}');
-        logger.finest('redis value:${redis_value}');
-        // await persistenceManager.box?.put(redis_key, redis_value);
-        // result = await _commitLog.commit(redis_key, commitOp);
-        var redis_value_json =
-            (redis_value != null) ? json.encode(redis_value.toJson()) : null;
-        await persistenceManager.redis_commands
-            .set(redis_key, redis_value_json);
-        result = await _commitLog.commit(redis_key, commitOp);
+        logger.finest('elastic key:${elastic_key}');
+        logger.finest('elastic value:${elastic_value}');
+        // await persistenceManager.box?.put(elastic_key, elastic_value);
+        // result = await _commitLog.commit(elastic_key, commitOp);
+        var elastic_value_json = (elastic_value != null)
+            ? json.encode(elastic_value.toJson())
+            : null;
+        await persistenceManager.client.updateDoc(
+          index: 'my_index',
+          type: 'my_type',
+          id: elastic_key,
+          doc: elastic_value_json,
+        );
+        result = await _commitLog.commit(elastic_key, commitOp);
       }
     } on DataStoreException {
       rethrow;
     } on Exception catch (exception) {
-      logger.severe('RedisKeystore put exception: $exception');
+      logger.severe('ElasticKeystore put exception: $exception');
       throw DataStoreException('exception in put: ${exception.toString()}');
     }
     return result;
   }
 
   @override
-  Future remove(String key) async {
+  Future putAll(String key, AtData value, AtMetaData metadata) async {
     var result;
-    try {
-      assert(key != null);
-      await persistenceManager.redis_commands.del(keys: [key]);
-      result = await _commitLog.commit(key, CommitOp.DELETE);
-      return result;
-    } on Exception catch (exception) {
-      logger.severe('RedisKeystore delete exception: $exception');
-      throw DataStoreException('exception in remove: ${exception.toString()}');
-    }
-  }
-
-  @override
-  Future<int> putAll(key, value, metadata) async {
-    var result;
-    var redis_key = keyStoreHelper.prepareKey(key);
+    var elastic_key = keyStoreHelper.prepareKey(key);
     value.metaData = AtMetadataBuilder(newAtMetaData: metadata).build();
     // Updating the version of the metadata.
     (metadata.version != null) ? metadata.version += 1 : metadata.version = 0;
-    await persistenceManager.redis_commands?.set(redis_key, value);
-    result = await _commitLog.commit(redis_key, CommitOp.UPDATE_ALL);
+    await persistenceManager.client.updateDoc(
+      index: 'my_index',
+      type: 'my_type',
+      id: elastic_key,
+      doc: value,
+    );
+    result = await _commitLog.commit(elastic_key, CommitOp.UPDATE_ALL);
     return result;
   }
 
   @override
-  Future putMeta(key, metadata) async {
-    var redis_key = keyStoreHelper.prepareKey(key);
+  Future putMeta(String key, AtMetaData metadata) async {
+    var elastic_key = keyStoreHelper.prepareKey(key);
     var existingData = await get(key);
     var newData = existingData ?? AtData();
     newData.metaData = AtMetadataBuilder(
@@ -271,25 +273,24 @@ class RedisKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
     (newData.metaData.version != null)
         ? newData.metaData.version += 1
         : newData.metaData.version = 0;
-    await persistenceManager.redis_commands?.set(redis_key, newData);
-    var result = await _commitLog.commit(redis_key, CommitOp.UPDATE_META);
+    await persistenceManager.client.updateDoc(
+        index: 'my_index', type: 'my_type', id: elastic_key, doc: newData);
+    var result = await _commitLog.commit(elastic_key, CommitOp.UPDATE_META);
     return result;
   }
 
   @override
-  Future<AtMetaData> getMeta(String key) async {
+  Future remove(String key) async {
+    var result;
     try {
-      var result;
-      var redis_key = keyStoreHelper.prepareKey(key);
-      var value = await persistenceManager.redis_commands?.get(redis_key);
-      if (value != null) {
-        result = result.fromJson(json.decode(value));
-        return result.metaData;
-      }
+      assert(key != null);
+      await persistenceManager.client.deleteDoc(index: 'my_index', id: key)(
+          keys: [key]);
+      result = await _commitLog.commit(key, CommitOp.DELETE);
+      return result;
     } on Exception catch (exception) {
-      logger.severe('RedisKeystore getMeta exception: $exception');
-      throw DataStoreException('exception in getMeta: ${exception.toString()}');
+      logger.severe('ElasticKeystore delete exception: $exception');
+      throw DataStoreException('exception in remove: ${exception.toString()}');
     }
-    return null;
   }
 }

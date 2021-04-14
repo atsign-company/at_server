@@ -137,24 +137,24 @@ class AtSecondaryServerImpl implements AtSecondaryServer {
     }
 
     //Commit Log Compaction
-    var commitLogCompactionJobInstance = AtCompactionJob.getInstance();
+    var commitLogCompactionJobInstance = AtCompactionJob(_commitLog);
     var atCommitLogCompactionConfig = AtCompactionConfig(
         commitLogSizeInKB,
         commitLogExpiryInDays,
         commitLogCompactionPercentage,
         commitLogCompactionFrequencyMins);
-    await commitLogCompactionJobInstance.scheduleCompactionJob(
-        atCommitLogCompactionConfig, _commitLog);
+    await commitLogCompactionJobInstance
+        .scheduleCompactionJob(atCommitLogCompactionConfig);
 
     //Access Log Compaction
-    var accessLogCompactionJobInstance = AtCompactionJob.getInstance();
+    var accessLogCompactionJobInstance = AtCompactionJob(_accessLog);
     var atAccessLogCompactionConfig = AtCompactionConfig(
         accessLogSizeInKB,
         accessLogExpiryInDays,
         accessLogCompactionPercentage,
         accessLogCompactionFrequencyMins);
-    await accessLogCompactionJobInstance.scheduleCompactionJob(
-        atAccessLogCompactionConfig, _accessLog);
+    await accessLogCompactionJobInstance
+        .scheduleCompactionJob(atAccessLogCompactionConfig);
 
     // Refresh Cached Keys
     var atRefreshJob = AtRefreshJob(serverContext.currentAtSign);
