@@ -5,7 +5,6 @@ import 'package:at_persistence_secondary_server/src/keystore/elasticsearch/elast
 import 'package:at_persistence_secondary_server/src/keystore/hive/hive_keystore_helper.dart';
 import 'package:at_persistence_secondary_server/src/utils/object_util.dart';
 import 'package:at_utils/at_logger.dart';
-import 'package:elastic_client/elastic_client.dart';
 import 'package:utf7/utf7.dart';
 
 class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
@@ -85,7 +84,7 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
   }
 
   @override
-  bool deleteExpiredKeys() {
+  Future<bool> deleteExpiredKeys() async {
     var result = true;
     try {
       var expiredKeys = <String>[];
@@ -123,13 +122,13 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
   }
 
   @override
-  List<String> getExpiredKeys() {
+  Future<List<String>> getExpiredKeys() async {
     var keys = <String>[];
     return keys;
   }
 
   @override
-  List<String> getKeys({String regex}) {
+  Future<List<String>> getKeys({String regex}) async {
     var keys = <String>[];
     var encodedKeys;
 
@@ -158,7 +157,8 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
       logger.severe('Invalid regular expression : ${regex}');
       throw InvalidSyntaxException('Invalid syntax ${exception.toString()}');
     } on Exception catch (exception) {
-      logger.severe('ElasticKeystore getKeys exception: ${exception.toString()}');
+      logger
+          .severe('ElasticKeystore getKeys exception: ${exception.toString()}');
       throw DataStoreException('exception in getKeys: ${exception.toString()}');
     }
     return encodedKeys;
