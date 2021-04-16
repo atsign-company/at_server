@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:at_persistence_secondary_server/src/conf/at_persistence_secondary_config.dart';
 import 'package:at_persistence_secondary_server/src/keystore/hive/secondary_persistence_hive_store.dart';
 import 'package:at_persistence_secondary_server/src/keystore/redis/secondary_persistence_redis_store.dart';
@@ -23,6 +25,7 @@ class SecondaryPersistenceStoreFactory {
   Map<String, SecondaryPersistenceStore> _secondaryPersistenceStoreMap = {};
 
   SecondaryPersistenceStore getSecondaryPersistenceStore(String atSign) {
+    logger.info('In persistence store factory keystore: ${AtPersistenceSecondaryConfig.keyStore}');
     if (!_secondaryPersistenceStoreMap.containsKey(atSign)) {
       if (AtPersistenceSecondaryConfig.keyStore == 'redis') {
         var secondaryPersistenceStore = SecondaryPersistenceRedisStore(atSign);

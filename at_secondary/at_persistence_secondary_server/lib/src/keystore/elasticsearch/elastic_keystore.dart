@@ -5,6 +5,7 @@ import 'package:at_persistence_secondary_server/src/keystore/elasticsearch/elast
 import 'package:at_persistence_secondary_server/src/keystore/hive/hive_keystore_helper.dart';
 import 'package:at_persistence_secondary_server/src/utils/object_util.dart';
 import 'package:at_utils/at_logger.dart';
+import 'package:elastic_client/elastic_client.dart';
 import 'package:utf7/utf7.dart';
 
 class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
@@ -109,8 +110,12 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
     var value = AtData();
     try {
       var elastic_key = keyStoreHelper.prepareKey(key);
-      var result = await persistenceManager.client
-          .get(index: 'my_index', type: 'my_type', id: elastic_key);
+      var conditions = [];
+        conditions.add(Query.match('id', elastic_key));
+      var query = Query.bool(should: conditions);
+      var result = await persistenceManager.client.search('my_index', 'my_type', query, source: true);
+      // var result = await persistenceManager.client
+      //     .search('my_index', 'my_type', query: Query.term('id', [elastic_key]) );
       if (result != null) {
         value = value.fromJson(json.decode(result));
       }

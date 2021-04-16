@@ -3,7 +3,7 @@ import 'package:at_persistence_secondary_server/src/conf/config_util.dart';
 
 class AtPersistenceSecondaryConfig {
   //Storage
-  static String _keyStore = 'redis';
+  static String _keyStore = 'elastic';
 
   static final Map<String, String> _envVars = Platform.environment;
 
