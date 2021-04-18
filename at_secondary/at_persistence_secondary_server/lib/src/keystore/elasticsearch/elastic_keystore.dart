@@ -70,12 +70,12 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
       var value =
           (elastic_data != null) ? json.encode(elastic_data.toJson()) : null;
       await persistenceManager.client.updateDoc(
-        index: 'my_index',
-        type: 'my_type',
+        index: 'tutorial',
+        type: 'helloworld',
         id: elastic_key,
         doc: value,
       );
-      await persistenceManager.client.flushIndex(index: 'my_index');
+      await persistenceManager.client.flushIndex(index: 'tutorial');
       result = await _commitLog.commit(elastic_key, commitOp);
       return result;
     } on Exception catch (exception) {
@@ -110,10 +110,14 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
     var value = AtData();
     try {
       var elastic_key = keyStoreHelper.prepareKey(key);
-      var conditions = [];
-        conditions.add(Query.match('id', elastic_key));
-      var query = Query.bool(should: conditions);
-      var result = await persistenceManager.client.search('my_index', 'my_type', query, source: true);
+      // var conditions = [];
+      // conditions.add(Query.match('id', elastic_key));
+      // var query = Query.bool(should: conditions);
+      var query = Query.match('_id', elastic_key);
+      var esResult = await persistenceManager.client
+          .search(index: 'tutorial', type: 'helloworld', query: query);
+      logger.info('es result : ${esResult.toMap()}');
+      var result = esResult.toMap()['doc'];
       // var result = await persistenceManager.client
       //     .search('my_index', 'my_type', query: Query.term('id', [elastic_key]) );
       if (result != null) {
@@ -140,12 +144,12 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
     try {
       if (persistenceManager.client != null) {
         keys = keys = persistenceManager.client.search(
-            index: 'my_index',
-            type: 'my_type',
+            index: 'tutorial',
+            type: 'helloworld',
             query: {
               "query": {"match_all": {}},
               "size": 30000,
-              "fields": ['id']
+              "fields": ['_id']
             },
             source: true);
         ;
@@ -233,10 +237,10 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
             ? json.encode(elastic_value.toJson())
             : null;
         await persistenceManager.client.updateDoc(
-          index: 'my_index',
-          type: 'my_type',
+          index: 'tutorial',
+          type: 'helloworld',
           id: elastic_key,
-          doc: elastic_value_json,
+          doc: Map<String, dynamic>.from(elastic_value.toJson()),
         );
         result = await _commitLog.commit(elastic_key, commitOp);
       }
@@ -257,8 +261,8 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
     // Updating the version of the metadata.
     (metadata.version != null) ? metadata.version += 1 : metadata.version = 0;
     await persistenceManager.client.updateDoc(
-      index: 'my_index',
-      type: 'my_type',
+      index: 'tutorial',
+      type: 'helloworld',
       id: elastic_key,
       doc: value,
     );
@@ -279,7 +283,7 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
         ? newData.metaData.version += 1
         : newData.metaData.version = 0;
     await persistenceManager.client.updateDoc(
-        index: 'my_index', type: 'my_type', id: elastic_key, doc: newData);
+        index: 'tutorial', type: 'helloworld', id: elastic_key, doc: newData);
     var result = await _commitLog.commit(elastic_key, CommitOp.UPDATE_META);
     return result;
   }
@@ -289,7 +293,7 @@ class ElasticKeyStore implements SecondaryKeyStore<String, AtData, AtMetaData> {
     var result;
     try {
       assert(key != null);
-      await persistenceManager.client.deleteDoc(index: 'my_index', id: key)(
+      await persistenceManager.client.deleteDoc(index: 'tutorial', id: key)(
           keys: [key]);
       result = await _commitLog.commit(key, CommitOp.DELETE);
       return result;
