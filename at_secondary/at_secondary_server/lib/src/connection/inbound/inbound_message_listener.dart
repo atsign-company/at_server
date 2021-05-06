@@ -15,6 +15,7 @@ class InboundMessageListener {
   final _buffer = at_commons.ByteBuffer(capacity: 10240000);
 
   InboundMessageListener(this.connection);
+
   Function(String, InboundConnection) onBufferEndCallBack;
   Function(List<int>, InboundConnection) onStreamCallBack;
 
@@ -76,8 +77,13 @@ class InboundMessageListener {
   }
 
   void _closeConnection() async {
-    if (!connection.isInValid()) {
-      await connection.close();
+    try {
+      if (!connection.isInValid()) {
+        await connection.close();
+      }
+    } on Exception catch (e) {
+      logger.finer(
+          'Exception while listening on inbound connection: ${e.toString()}');
     }
   }
 }
