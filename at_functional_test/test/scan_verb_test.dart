@@ -6,22 +6,25 @@ import 'package:test/test.dart';
 import 'commons.dart';
 
 void main() {
-  var first_atsign = '@bob🛠';
-  var first_atsign_port = 25003;
+  var first_atsign = '@high8289';
+  var second_atsign = '@92official22';
 
-
-  var second_atsign = '@emoji🦄🛠';
-  var second_atsign_port = 25009;
-
-  Socket _socket_first_atsign;
   Socket _socket_second_atsign;
+  Socket _socket_first_atsign;
 
+  //Establish the client socket connection
+    var high8289_server =  ConfigUtil.getYaml()['high8289_server']['high8289_url'];
+    var high8289_port =  ConfigUtil.getYaml()['high8289_server']['high8289_port'];
+
+    var official22_server =  ConfigUtil.getYaml()['92official22_server']['92official22_url'];
+    var official22_port =  ConfigUtil.getYaml()['92official22_server']['92official22_port'];
+    
   test('Scan verb after authentication', () async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
-    _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+     _socket_first_atsign =
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
+
 
     ///UPDATE VERB
     await socket_writer(
@@ -38,24 +41,25 @@ void main() {
   },timeout: Timeout(Duration(seconds: 120)));
 
   test('scan verb before authentication', () async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
-    _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+     _socket_first_atsign =
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
+    await prepare(_socket_first_atsign, first_atsign);
+
 
     ///SCAN VERB
     await socket_writer(_socket_first_atsign, 'scan');
     var response = await read();
     print('scan verb response : $response');
-    expect(response, contains('"location$first_atsign"'));
+    expect(response, contains('"public:location$first_atsign"'));
   },timeout: Timeout(Duration(seconds: 120)));
 
   test('Scan verb with only atsign and no value', () async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
-    _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+     _socket_first_atsign =
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
+
 
     ///SCAN VERB
     await socket_writer(_socket_first_atsign, 'scan@');
@@ -65,11 +69,11 @@ void main() {
   },timeout: Timeout(Duration(seconds: 120)));
 
   test('Scan verb with regex', () async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
-    _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+     _socket_first_atsign =
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
+
     
     ///UPDATE VERB
     await socket_writer(_socket_first_atsign, 'update:public:twitter.me$first_atsign bob_123');
@@ -85,20 +89,19 @@ void main() {
   },timeout: Timeout(Duration(seconds: 120)));
 
   test('scan verb with emoji', () async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
-    _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+     _socket_first_atsign =
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
 
-    var root_server1 = ConfigUtil.getYaml()['root_server']['url'];
+    // connecting to the second atsign
     _socket_second_atsign =
-        await secure_socket_connection(root_server1, second_atsign_port);
+    await secure_socket_connection(official22_server, official22_port);
     socket_listener(_socket_second_atsign);
     await prepare(_socket_second_atsign, second_atsign);
 
     ///UPDATE VERB
-    await socket_writer(_socket_second_atsign, 'update:$first_atsign:emoticon$second_atsign unicorn');
+    await socket_writer(_socket_second_atsign, 'update:ttr:-1:$first_atsign:emoticon$second_atsign 🦄🦄');
     var response = await read();
     print('update verb response : $response');
     assert((!response.contains('Invalid syntax')) && (!response.contains('null')));

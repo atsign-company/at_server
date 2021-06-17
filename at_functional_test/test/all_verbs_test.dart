@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import 'commons.dart';
@@ -6,19 +8,22 @@ import 'package:at_functional_test/conf/config_util.dart';
 ///The below test functions runs a complete flow of all verbs
 void main() async {
   // First atsign details
-  var first_atsign = '@bob🛠';
-  var first_atsign_port = 25003;
-  var _socket_first_atsign;
+  var first_atsign = '@high8289';
+  var second_atsign = '@92official22';
 
-// second atsign details 
-  var second_atsign = '@alice🛠';
+  Socket _socket_first_atsign;
 
+  //Establish the client socket connection
   setUp(() async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
+    var high8289_server =  ConfigUtil.getYaml()['high8289_server']['high8289_url'];
+    var high8289_port =  ConfigUtil.getYaml()['high8289_server']['high8289_port'];
+    
     _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
+
+    //Socket connection for alice atsign
   });
 
   test('update verb test $first_atsign', () async {
@@ -68,28 +73,28 @@ void main() async {
   test('config verb test -add block list $first_atsign', () async {
     await socket_writer(_socket_first_atsign, 'config:block:add:$second_atsign');
     var response = await read();
-    print('Delete verb response $response');
+    print('Config verb response $response');
     expect(response, contains('data:success'));
   });
 
   test('config verb test - show list $first_atsign', () async {
     await socket_writer(_socket_first_atsign, 'config:block:show');
     var response = await read();
-    print('Delete verb response $response');
-    expect(response, contains('@alice'));
+    print('Config verb response $response');
+    expect(response, contains('$second_atsign'));
   });
 
   test('config verb test -remove from block list $first_atsign', () async {
     await socket_writer(_socket_first_atsign, 'config:block:remove:$second_atsign');
     var response = await read();
-    print('Delete verb response $response');
+    print('config verb response $response');
     expect(response, contains('data:success'));
   });
 
   test('config verb test - show list $first_atsign', () async {
     await socket_writer(_socket_first_atsign, 'config:block:show');
     var response = await read();
-    print('Delete verb response $response');
+    print('config verb response $response');
     expect(response, contains('data:null'));
   });
 

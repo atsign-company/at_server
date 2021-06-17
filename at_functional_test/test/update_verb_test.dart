@@ -1,24 +1,36 @@
+import 'package:at_functional_test/conf/config_util.dart';
 import 'package:test/test.dart';
 
 import 'commons.dart';
 
 import 'dart:io';
-import 'package:at_functional_test/conf/config_util.dart';
 
 void main() {
-  var first_atsign = '@bob🛠';
-  var first_atsign_port = 25003;
+  var first_atsign = '@high8289';
+  var second_atsign = '@92official22';
 
-  var second_atsign = '@alice🛠';
-
+  Socket _socket_second_atsign;
   Socket _socket_first_atsign;
-  
+
+  //Establish the client socket connection
   setUp(() async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
+    var high8289_server =  ConfigUtil.getYaml()['high8289_server']['high8289_url'];
+    var high8289_port =  ConfigUtil.getYaml()['high8289_server']['high8289_port'];
+
+    var official22_server =  ConfigUtil.getYaml()['92official22_server']['92official22_url'];
+    var official22_port =  ConfigUtil.getYaml()['92official22_server']['92official22_port'];
+    
+    //  var root_server = ConfigUtil.getYaml()['root_server']['url'];
     _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
+
+    //Socket connection for alice atsign
+    _socket_second_atsign =
+    await secure_socket_connection(official22_server, official22_port);
+    socket_listener(_socket_second_atsign);
+    await prepare(_socket_second_atsign, second_atsign);
   });
 
   test('update-llookup verb with public key', () async {
@@ -134,6 +146,26 @@ void main() {
     response = await read();
     print('llookup verb response : $response');
     expect(response, contains('data:"パーニマぱーにま"'));
+  }, timeout: Timeout(Duration(seconds: 90)));
+
+  test('update verb by sharing a cached key ', () async {
+    ///UPDATE VERB
+    await socket_writer(_socket_first_atsign, 'update:ttr:-1:$second_atsign:xbox1$first_atsign player123');
+    var response = await read();
+    print('update verb response : $response');
+    assert((!response.contains('Invalid syntax')) && (!response.contains('null')));
+
+    // ///LLOOKUP VERB in the same secondary
+    await socket_writer(_socket_first_atsign, 'llookup:$second_atsign:xbox1$first_atsign');
+    response = await read();
+    print('llookup verb response : $response');
+    expect(response, contains('data:player123'));
+
+    //LOOKUP VERB in the shared secondary
+    await socket_writer(_socket_second_atsign, 'llookup:cached:$second_atsign:xbox1$first_atsign');
+    response = await read();
+    print('llookup verb response : $response');
+    expect(response, contains('data:player123'));
   }, timeout: Timeout(Duration(seconds: 90)));
 
   test('update verb by passing 2 @ symbols ', () async {

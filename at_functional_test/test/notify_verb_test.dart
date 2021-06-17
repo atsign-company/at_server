@@ -6,26 +6,30 @@ import 'commons.dart';
 import 'package:at_functional_test/conf/config_util.dart';
 
 void main() {
-  var first_atsign = '@alice🛠';
-  var first_atsign_port = 25003;
+  var first_atsign = '@high8289';
+  var second_atsign = '@92official22';
+  var third_atsign = '37quiet';
 
-  var second_atsign = '@bob🛠';
-  var second_atsign_port = 25000;
-
-  var third_atsign = '@emoji🦄🛠';
-
-  Socket _socket_first_atsign;
   Socket _socket_second_atsign;
+  Socket _socket_first_atsign;
 
+  //Establish the client socket connection
   setUp(() async {
-    var root_server = ConfigUtil.getYaml()['root_server']['url'];
+    var high8289_server =  ConfigUtil.getYaml()['high8289_server']['high8289_url'];
+    var high8289_port =  ConfigUtil.getYaml()['high8289_server']['high8289_port'];
+
+    var official22_server =  ConfigUtil.getYaml()['92official22_server']['92official22_url'];
+    var official22_port =  ConfigUtil.getYaml()['92official22_server']['92official22_port'];
+    
+    //  var root_server = ConfigUtil.getYaml()['root_server']['url'];
     _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
 
+    //Socket connection for alice atsign
     _socket_second_atsign =
-        await secure_socket_connection(root_server, second_atsign_port);
+    await secure_socket_connection(official22_server, official22_port);
     socket_listener(_socket_second_atsign);
     await prepare(_socket_second_atsign, second_atsign);
   });
@@ -42,14 +46,14 @@ void main() {
     print(id);
 
     // notify status
-    await socket_writer(_socket_first_atsign, 'notify:status:$id');
-    await Future.delayed(Duration(seconds: 6));
+    await Future.delayed(Duration(seconds: 15));
+    await socket_writer(_socket_second_atsign, 'notify:status:$id');
     response = await read();
     print('notify status response : $response');
     assert(response.contains('data:delivered'));
     
     ///notify:list verb
-    await socket_writer(_socket_second_atsign, 'notify:list');
+    await socket_writer(_socket_first_atsign, 'notify:list');
     response = await read();
     print('notify list verb response : $response');
     expect(
@@ -70,13 +74,13 @@ void main() {
 
     //   // notify status
     await Future.delayed(Duration(seconds: 15));
-    await socket_writer(_socket_first_atsign, 'notify:status:$id');
+    await socket_writer(_socket_second_atsign, 'notify:status:$id');
     response = await read();
     print('notify status response : $response');
     expect(response, contains('data:delivered'));
 
     //   ///notify:list verb
-    await socket_writer(_socket_second_atsign, 'notify:list');
+    await socket_writer(_socket_first_atsign, 'notify:list');
     response = await read();
     print('notify list verb response : $response');
     expect(response,
@@ -85,8 +89,8 @@ void main() {
 
   test('notify verb for deleting a key for other atsign', () async {
     //   /// NOTIFY VERB
-    await socket_writer(_socket_first_atsign,
-        'notify:delete:messageType:key:notifier:system:ttr:-1:$second_atsign:email$first_atsign');
+    await socket_writer(_socket_second_atsign,
+        'notify:delete:messageType:key:notifier:system:ttr:-1:$first_atsign:email$second_atsign');
     var response = await read();
     print('notify verb response : $response');
     var id = response.replaceAll('data:', '');
@@ -94,20 +98,20 @@ void main() {
         (!response.contains('Invalid syntax')) && (!response.contains('null')));
 
     //   // notify status
-    // await Future.delayed(Duration(seconds: 15));
-    await socket_writer(_socket_first_atsign, 'notify:status:$id');
+    await Future.delayed(Duration(seconds: 15));
+    await socket_writer(_socket_second_atsign, 'notify:status:$id');
     response = await read();
     print('notify status response : $response');
     expect(response, contains('data:delivered'));
 
     //   ///notify:list verb with regex
-    await socket_writer(_socket_second_atsign, 'notify:list:email');
+    await socket_writer(_socket_first_atsign, 'notify:list:email');
     response = await read();
     print('notify list verb response : $response');
     expect(
         response,
         contains(
-            '"key":"$second_atsign:email$first_atsign","value":null,"operation":"delete"'));
+            '"key":"$first_atsign:email$second_atsign","value":null,"operation":"delete"'));
   }, timeout: Timeout(Duration(seconds: 120)));
 
   // // notify verb- Negative scenario
@@ -141,42 +145,42 @@ void main() {
   // // NOTIFY ALL - UPDATE
   test('notify all for notifiying 2 atsigns at the same time ', () async {
     /// NOTIFY VERB
-    await socket_writer(_socket_first_atsign,
-        'notify:all:update:messageType:key:ttr:-1:$second_atsign,$third_atsign:twitter$first_atsign:bob_G');
+    await socket_writer(_socket_second_atsign,
+        'notify:all:update:messageType:key:ttr:-1:$third_atsign,$first_atsign:facebook$second_atsign:joeey');
     var response = await read();
     print('notify verb response : $response');
     assert(
         (!response.contains('Invalid syntax')) && (!response.contains('null')));
 
     ///notify:list verb with regex
-    await socket_writer(_socket_second_atsign, 'notify:list:twitter');
+    await Future.delayed(Duration(seconds: 15));
+    await socket_writer(_socket_first_atsign, 'notify:list:facebook');
     response = await read();
     print('notify list verb response : $response');
     expect(
         response,
         contains(
-            '"key":"$second_atsign:twitter$first_atsign","value":"bob_G","operation":"update"'));
+            '"key":"$first_atsign:facebook$second_atsign","value":"joeey","operation":"update"'));
   }, timeout: Timeout(Duration(seconds: 120)));
 
-  // // notify all delete
-  test('notify all for notifiying 2 atsigns at the same time for a delete ',
-      () async {
+  // notify all delete
+  test('notify all for notifiying 2 atsigns at the same time ', () async {
     /// NOTIFY VERB
-    await socket_writer(_socket_first_atsign,
-        'notify:all:delete:messageType:key:ttr:-1:$second_atsign,$third_atsign:twitter$first_atsign');
+    await socket_writer(_socket_second_atsign,
+        'notify:all:delete:messageType:key:ttr:-1:$third_atsign,$first_atsign:facebook$second_atsign');
     var response = await read();
     print('notify verb response : $response');
     assert(
         (!response.contains('Invalid syntax')) && (!response.contains('null')));
 
     ///notify:list verb with regex
-    await socket_writer(_socket_second_atsign, 'notify:list:twitter');
+    await Future.delayed(Duration(seconds: 15));
+    await socket_writer(_socket_first_atsign, 'notify:list:facebook');
     response = await read();
     print('notify list verb response : $response');
-    expect(
-        response,
+    expect(response,
         contains(
-            '"key":"$second_atsign:twitter$first_atsign","value":"null","operation":"delete"'));
+            '"key":"$first_atsign:facebook$second_atsign","value":"null","operation":"delete"'));
   }, timeout: Timeout(Duration(seconds: 120)));
 
   tearDown(() {

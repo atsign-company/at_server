@@ -5,4 +5,16 @@ root_server:
   # The port to connect to root server
   port: 64
   # The url to connect to root server
-  url: 'vip.ve.atsign.zone'
+  url: 'root.atsign.org'
+
+92official22_server:
+  # # The port to connect to root server
+  92official22_port: 2285
+  # # The url to connect to root server
+  92official22_url: 2e518d29-af23-5fc1-888d-224b83c71197.hornet.atsign.zone
+
+high8289_server:
+  # # The port to connect to root server
+  high8289_port: 2179
+  # # The url to connect to root server
+  high8289_url: b1bee653-ce14-59d5-8015-cd82c1e09df0.hornet.atsign.zone

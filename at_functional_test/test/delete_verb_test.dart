@@ -5,25 +5,29 @@ import 'package:at_functional_test/conf/config_util.dart';
 import 'dart:io';
 
 void main() {
-  var first_atsign = '@bob🛠';
-  var first_atsign_port = 25003;
-
-  var second_atsign = '@alice🛠';
-  var second_atsign_port = 25000;
+  var first_atsign = '@high8289';
+  var second_atsign = '@92official22';
 
   Socket _socket_second_atsign;
   Socket _socket_first_atsign;
 
   //Establish the client socket connection
   setUp(() async {
-      var root_server = ConfigUtil.getYaml()['root_server']['url'];
+    var high8289_server =  ConfigUtil.getYaml()['high8289_server']['high8289_url'];
+    var high8289_port =  ConfigUtil.getYaml()['high8289_server']['high8289_port'];
+
+    var official22_server =  ConfigUtil.getYaml()['92official22_server']['92official22_url'];
+    var official22_port =  ConfigUtil.getYaml()['92official22_server']['92official22_port'];
+    
+    //  var root_server = ConfigUtil.getYaml()['root_server']['url'];
     _socket_first_atsign =
-        await secure_socket_connection(root_server, first_atsign_port);
+        await secure_socket_connection(high8289_server, high8289_port);
     socket_listener(_socket_first_atsign);
     await prepare(_socket_first_atsign, first_atsign);
 
+    //Socket connection for alice atsign
     _socket_second_atsign =
-    await secure_socket_connection(root_server, second_atsign_port);
+    await secure_socket_connection(official22_server, official22_port);
     socket_listener(_socket_second_atsign);
     await prepare(_socket_second_atsign, second_atsign);
   });
